@@ -97,27 +97,29 @@ Only then (when everything works) turn the code into a function and use map_df()
 See placeholder code here for help.
 
 ```{r}
-library(tidyverse)
+library(pacman)
+p_load(tidyverse, stringr, effsize, lme4)
 
-read_pitch <- function(filename) {
-    # load data
-    
-    # parse filename to extract study, diagnosis, subject and trial
-    
-    # extract pitch descriptors (mean, sd, iqr, etc)
-    
-    # combine all this data in one dataset
-    return(data)
-}
+My_f <- function(x){
+                        data.frame(Study = str_extract(regmatches(x, gregexpr('Study[0-9]{1}', x)), "\\d")[[1]], #study - add regular expression so it only keeps the numbers not the letters  
+                                  Diagnosis = regmatches(x, gregexpr('D[0-9]{1}', x))[[1]], #Diagnosis
+                                Subject = regmatches(x, gregexpr('S[0-9]{1,3}', x))[[1]], #Subject
+                                  Trial = regmatches(x, gregexpr('T[0-9]{1,2}', x))[[1]], #Trial
+                          mean = mean(read.delim(x, stringsAsFactors = F)[,2]), #mean
+                          sd = sd(read.delim(x, stringsAsFactors = F)[,2]), #sd
+                          IQR = IQR(read.delim(x, stringsAsFactors = F)[,2]), #inner quartile range
+                          min = range(read.delim(x, stringsAsFactors = F)[,2])[1], #min
+                          max = range(read.delim(x, stringsAsFactors = F)[,2])[2]) #max
+                                  }
 
-# test it on just one file while writing the function
-test_data = read_pitch("Pitch/a_file_to_test.txt")
+#This is only something we do the first time, next time just load the csv written
+#files <- list.files(path = "data/Pitch/", pattern = "*.txt", full.names = T)
+#l <- lapply(files, My_f)
+#tbl <- l %>%  bind_rows()
+#write.csv(tbl, "Pitch_data.csv", fileEncoding = "UTF-8")
 
-# when you've created a function that works, you can
-pitch_data = list.files(path = "Assignment3/data/Pitch/",pattern = ".txt") %>% ## NB replace with your path to the files
-    purrr::map_df(read_pitch)
-
-write_csv(pitch_data, ...)
+setwd("~/Uni/3. semester/Experimental methods 3/Assignment 1/Assignment 3/Assignment-3-1")
+pitch_data <- read.csv("Pitch_data.csv")
 
 ```
 
@@ -126,14 +128,43 @@ write_csv(pitch_data, ...)
 
 ```{r}
 # Let's start with the demographic and clinical data
+demo<- read.csv2("DemographicData.csv")
+demo <- demo[1:386,]
 
 # then duration data
+arti <- read.csv("Articulation.txt")
 
 # Finally the pitch data
+pitch <- read.csv("pitchdata.csv")
 
 # Now we merge them
+art_sor <- arti[order(arti[,1], decreasing = F ),] #Ordering articulation data
+pitch[,12:19] <- art_sor[,1:8] #Adding articulation data to pitch dataframe (=merging)
+
+#Merging demographic data with articulation and pitch 
+#Adding 0's so that study 6 also has 3 numbers pr participant
+demo$Participant[demo$Study == 6] <- str_pad(demo$Participant[demo$Study == 6], width = 3, side = "left", pad = "0")
+
+demo$Participant[demo$Study == 7] <- str_pad(demo$Participant[demo$Study == 7], width = 2, side = "left", pad = "0")
+
+#Adding study before the numbers in the study column
+demo$Study <- paste0("Study", demo$Study)
+
+#Adding S before the numbers in participant number
+demo$Participant <- paste0("S", demo$Participant)
+
+#Making diagnosis the same as in the other data by changing Control to D0 and Schizophrenia to D1
+demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", "D0", "D1")
+
+#Adding column combining Study, Diagnosis and Participant 
+demo$ID <- paste0(demo$Study, demo$Diagnosis, demo$Participant)
+pitch$ID <- paste0(pitch$Study, pitch$Diagnosis, pitch$Subject)
+
+#Now finally merging 
+merged_data <- merge(pitch, demo, by = "ID")
 
 # Now we save them
+#write.csv(merged_data, "Merged_data.csv", fileEncoding = "UTF-8")
 
 ```
 
@@ -145,7 +176,17 @@ Finally, do the same by diagnosis and study, to assess systematic differences in
 I like to use group_by() %>% summarize() for quick summaries
 
 ```{r}
+length(merged_data$Diagnosis.x[merged_data$Diagnosis.x=="D0"]) #1906
 
+length(merged_data$Diagnosis.x[merged_data$Diagnosis.x=="D1"]) #2092
+
+merged_data %>% group_by(Diagnosis.x) %>% count()
+
+length(unique(merged_data$ID)) #335 participants in total
+
+merged_data %>% group_by(Gender,Diagnosis.x) %>% summarise(Participants = length(unique(ID)),mean_age=mean(Age, na.rm = T),meanVIQ=mean(VerbalIQ, na.rm = T),SD_VIQ=sd(VerbalIQ, na.rm = T),meansans=mean(as.numeric(SANS), na.rm = T),meansaps=mean(as.numeric(SAPS), na.rm = T))
+
+merged_data %>% group_by(Study.x,Gender,Diagnosis.x) %>% summarise(Participants = length(unique(ID)), mean_age=mean(Age, na.rm = T),meanVIQ=mean(VerbalIQ, na.rm = T),SD_VIQ=sd(VerbalIQ, na.rm = T),meansans=mean(as.numeric(SANS), na.rm = T),meansaps=mean(as.numeric(SAPS), na.rm = T))
 ```
 
 ## Now we can analyze the data
@@ -165,6 +206,21 @@ N.N.N.B. If you want to estimate the studies separately, you can try this syntax
 - Bonus points: cross-validate the models and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 
 ```{r}
+#Setting seed
+set.seed(1)
+
+#Scaling variables
+merged_data$scaled_IQR <- as.numeric(scale(merged_data$IQR))
+merged_data$scaled_speak_time <- as.numeric(scale(merged_data$phonationtime..s.))
+merged_data$scaled_speech_rate <- as.numeric(scale(merged_data$speechrate..nsyll.dur.))
+
+merged_data$scaled_pause_duration <- as.numeric((merged_data$dur..s.-merged_data$phonationtime..s.)/merged_data$npause)
+#Making -inf anf inf values to NA's (due to zero pauses)
+merged_data$scaled_pause_duration[merged_data$npause == 0] <- NA
+#Scaling
+merged_data$scaled_pause_duration <- scale(merged_data$scaled_pause_duration)
+
+
 
 ```
 
