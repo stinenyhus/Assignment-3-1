@@ -98,7 +98,7 @@ See placeholder code here for help.
 
 ```{r}
 library(pacman)
-p_load(tidyverse, stringr, effsize, lme4)
+p_load(tidyverse, stringr, effsize, lme4, esc)
 
 My_f <- function(x){
                         data.frame(Study = str_extract(regmatches(x, gregexpr('Study[0-9]{1}', x)), "\\d")[[1]], #study - add regular expression so it only keeps the numbers not the letters  
@@ -187,6 +187,11 @@ length(unique(merged_data$ID)) #335 participants in total
 merged_data %>% group_by(Gender,Diagnosis.x) %>% summarise(Participants = length(unique(ID)),mean_age=mean(Age, na.rm = T),meanVIQ=mean(VerbalIQ, na.rm = T),SD_VIQ=sd(VerbalIQ, na.rm = T),meansans=mean(as.numeric(SANS), na.rm = T),meansaps=mean(as.numeric(SAPS), na.rm = T))
 
 merged_data %>% group_by(Study.x,Gender,Diagnosis.x) %>% summarise(Participants = length(unique(ID)), mean_age=mean(Age, na.rm = T),meanVIQ=mean(VerbalIQ, na.rm = T),SD_VIQ=sd(VerbalIQ, na.rm = T),meansans=mean(as.numeric(SANS), na.rm = T),meansaps=mean(as.numeric(SAPS), na.rm = T))
+
+merged_data %>% group_by(Diagnosis.x, Gender) %>% summarise(n=length(unique(ID)))
+merged_data %>% group_by(Diagnosis.x) %>% summarise(n=length(unique(ID)))
+merged_data %>% group_by(Study.x) %>% summarise(n=length(unique(ID)))
+70+46+47+58
 ```
 
 ## Now we can analyze the data
@@ -221,6 +226,29 @@ merged_data$scaled_pause_duration[merged_data$npause == 0] <- NA
 merged_data$scaled_pause_duration <- scale(merged_data$scaled_pause_duration)
 
 
+###MODELS###
+
+#Model predicting pitch from diagnosis
+pitch_model <- lmer(scaled_IQR~ 0 + Diagnosis.x + Language + (1+ID|Study.x), data = merged_data, REML =F)
+
+sum_pitch <- summary(pitch_model)
+sum_pitch$coefficients
+
+#Predicting spoken time
+speak_model <- lmer(scaled_speak_time~ 0 + Diagnosis.x + Language + (1+ID|Trial) + , data = merged_data, REML =F)
+summary(speak_model)
+
+sum_speak <- summary(speak_model)
+
+#Predicting speech rate
+speech_rate_model <- lmer(scaled_speech_rate~ 1 + Diagnosis.x + Language + (1+ID|Study.x), data = merged_data, REML =F)
+
+sum_speech <- summary(speech_rate_model)
+
+#Predicting pause duration
+pause_model <- lmer(scaled_pause_duration~ 1 + Diagnosis.x + Language + (1+ID|Study.x), data = merged_data, REML =F)
+
+sum_pause <- summary(pause_model)
 
 ```
 
