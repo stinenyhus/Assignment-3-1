@@ -184,14 +184,15 @@ merged_data %>% group_by(Diagnosis.x) %>% count()
 
 length(unique(merged_data$ID)) #335 participants in total
 
-merged_data %>% group_by(Gender,Diagnosis.x) %>% summarise(Participants = length(unique(ID)),mean_age=mean(Age, na.rm = T),meanVIQ=mean(VerbalIQ, na.rm = T),SD_VIQ=sd(VerbalIQ, na.rm = T),meansans=mean(as.numeric(SANS), na.rm = T),meansaps=mean(as.numeric(SAPS), na.rm = T))
+merged_data %>% group_by(Diagnosis.x) %>% summarise(Participants = length(unique(ID)),mean_age=mean(Age, na.rm = T),meanVIQ=mean(VerbalIQ, na.rm = T),SD_VIQ=sd(VerbalIQ, na.rm = T),meansans=mean(as.numeric(SANS), na.rm = T),meansaps=mean(as.numeric(SAPS), na.rm = T))
 
-merged_data %>% group_by(Study.x,Gender,Diagnosis.x) %>% summarise(Participants = length(unique(ID)), mean_age=mean(Age, na.rm = T),meanVIQ=mean(VerbalIQ, na.rm = T),SD_VIQ=sd(VerbalIQ, na.rm = T),meansans=mean(as.numeric(SANS), na.rm = T),meansaps=mean(as.numeric(SAPS), na.rm = T))
+desc_df <- merged_data %>% group_by(Study.x,Diagnosis.x, Gender) %>% summarise(n = length(unique(ID)), mean_age=mean(Age, na.rm = T),meanVIQ=mean(VerbalIQ, na.rm = T),SD_VIQ=sd(VerbalIQ, na.rm = T),meansans=mean(as.numeric(SANS), na.rm = T),meansaps=mean(as.numeric(SAPS), na.rm = T))
+desc_df
 
 merged_data %>% group_by(Diagnosis.x, Gender) %>% summarise(n=length(unique(ID)))
 merged_data %>% group_by(Diagnosis.x) %>% summarise(n=length(unique(ID)))
 merged_data %>% group_by(Study.x) %>% summarise(n=length(unique(ID)))
-70+46+47+58
+
 ```
 
 ## Now we can analyze the data
